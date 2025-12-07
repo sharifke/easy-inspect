@@ -55,6 +55,25 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture, onCancel }) => {
     };
   }, [facingMode]);
 
+  useEffect(() => {
+    // Attach stream to video element when stream becomes available
+    if (stream && videoRef.current) {
+      addLog('useEffect: Attaching stream to video element');
+      const video = videoRef.current;
+      video.srcObject = stream;
+
+      video.onloadedmetadata = () => {
+        addLog(`Video metadata loaded: ${video.videoWidth}x${video.videoHeight}`);
+      };
+
+      video.play().then(() => {
+        addLog('Video play() succeeded');
+      }).catch(err => {
+        addLog(`Video play() failed: ${err.message}`);
+      });
+    }
+  }, [stream]);
+
   const startCamera = async () => {
     addLog('startCamera called, setting isLoading=true');
     setIsLoading(true);
@@ -70,42 +89,8 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onCapture, onCancel }) => {
       setStream(mediaStream);
       addLog('Stream state set');
 
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = mediaStream;
-        addLog('Video element connected to stream');
-
-        // Add event listeners for debugging
-        video.onloadedmetadata = () => {
-          addLog('Video metadata loaded');
-          addLog(`Video dimensions: ${video.videoWidth} x ${video.videoHeight}`);
-        };
-
-        video.onloadeddata = () => {
-          addLog('Video data loaded');
-        };
-
-        video.oncanplay = () => {
-          addLog('Video can play');
-        };
-
-        video.onplaying = () => {
-          addLog('Video is playing');
-        };
-
-        // Explicitly play the video (important for mobile browsers)
-        try {
-          addLog('Attempting to play video...');
-          await video.play();
-          addLog('Video play() succeeded');
-        } catch (playError: any) {
-          addLog(`Video play() failed: ${playError.message}`);
-        }
-
-        // Wait a bit to ensure video is rendering
-        await new Promise(resolve => setTimeout(resolve, 500));
-        addLog('Video setup complete');
-      }
+      // NOTE: Stream attachment is now handled by the useEffect hook
+      // dependent on [stream], because the video element might not exist yet.
 
       addLog('startCamera completed successfully');
     } catch (err: any) {
