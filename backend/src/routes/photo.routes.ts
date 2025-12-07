@@ -11,11 +11,17 @@ import {
 
 const router = Router({ mergeParams: true });
 
+import fs from 'fs';
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     // Temporary upload directory - files will be moved to final location in controller
-    cb(null, 'uploads/temp');
+    const tempDir = 'uploads/temp';
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    cb(null, tempDir);
   },
   filename: (_req, file, cb) => {
     // Generate temporary filename

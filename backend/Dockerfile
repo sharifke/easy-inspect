@@ -26,7 +26,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Create uploads directory and set permissions
-RUN mkdir -p uploads && chmod 777 uploads
+RUN mkdir -p uploads/temp && chmod -R 777 uploads
 
 # Expose portdev dependencies to save space (optional, but good practice)
 # RUN npm prune --production
