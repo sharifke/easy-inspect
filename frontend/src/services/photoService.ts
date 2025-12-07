@@ -126,8 +126,8 @@ export const photoService = {
  */
 export const resizeImage = (
   file: File,
-  maxWidth: number = 2048,
-  maxHeight: number = 2048
+  _maxWidth: number = 2048,
+  _maxHeight: number = 2048
 ): Promise<Blob> => {
   // TEMPORARY: Bypass all resizing logic to prevent black images and slowness
   return Promise.resolve(file);
