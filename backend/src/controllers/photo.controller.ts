@@ -257,303 +257,304 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<void> =>
   } catch (error) {
     console.error('Error uploading photo:', error);
     res.status(500).json({
-      status: 'error',
-      message: 'Failed to upload photo',
-    });
-  }
+      res.status(500).json({
+        status: 'error',
+        message: `Failed to upload photo: ${(error as Error).message}`,
+      });
+    }
 };
 
-/**
- * Get all photos for inspection result
- * GET /api/inspections/:id/results/:resultId/photos
- */
-export const getPhotos = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = (req as any).user;
-    if (!user) {
-      res.status(401).json({
-        status: 'error',
-        message: 'Not authenticated',
-      });
-      return;
-    }
-
-    const { id: inspectionId, resultId } = req.params;
-
-    // Verify inspection access
-    const { hasAccess } = await verifyInspectionAccess(
-      inspectionId,
-      user.userId,
-      user.role
-    );
-
-    if (!hasAccess) {
-      res.status(403).json({
-        status: 'error',
-        message: 'You do not have permission to view photos for this inspection',
-      });
-      return;
-    }
-
-    // Verify inspection result exists
-    const inspectionResult = await prisma.inspectionResult.findUnique({
-      where: { id: resultId },
-    });
-
-    if (!inspectionResult) {
-      res.status(404).json({
-        status: 'error',
-        message: 'Inspection result not found',
-      });
-      return;
-    }
-
-    if (inspectionResult.inspectionId !== inspectionId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Inspection result does not belong to this inspection',
-      });
-      return;
-    }
-
-    // Get photos
-    const photos = await prisma.photo.findMany({
-      where: { inspectionResultId: resultId },
-      orderBy: { takenAt: 'desc' },
-    });
-
-    // Add relative URLs to photos and parse annotations
-    const cacheBuster = Date.now(); // Add timestamp to prevent caching issues
-    const photosWithUrls = photos.map((photo) => ({
-      ...photo,
-      url: `/uploads/${photo.path}?t=${cacheBuster}`,
-      thumbnailUrl: photo.thumbnailPath ? `/uploads/${photo.thumbnailPath}?t=${cacheBuster}` : null,
-      annotations: typeof photo.annotations === 'string'
-        ? JSON.parse(photo.annotations)
-        : photo.annotations,
-    }));
-
-    res.status(200).json({
-      status: 'success',
-      data: { photos: photosWithUrls },
-      message: `Found ${photos.length} photo(s)`,
-    });
-  } catch (error) {
-    console.error('Error fetching photos:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to fetch photos',
-    });
-  }
-};
-
-/**
- * Delete photo
- * DELETE /api/inspections/:id/results/:resultId/photos/:photoId
- */
-export const deletePhoto = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = (req as any).user;
-    if (!user) {
-      res.status(401).json({
-        status: 'error',
-        message: 'Not authenticated',
-      });
-      return;
-    }
-
-    const { id: inspectionId, resultId, photoId } = req.params;
-
-    // Verify inspection access
-    const { hasAccess } = await verifyInspectionAccess(
-      inspectionId,
-      user.userId,
-      user.role
-    );
-
-    if (!hasAccess) {
-      res.status(403).json({
-        status: 'error',
-        message: 'You do not have permission to delete photos from this inspection',
-      });
-      return;
-    }
-
-    // Get photo
-    const photo = await prisma.photo.findUnique({
-      where: { id: photoId },
-      include: { inspectionResult: true },
-    });
-
-    if (!photo) {
-      res.status(404).json({
-        status: 'error',
-        message: 'Photo not found',
-      });
-      return;
-    }
-
-    // Verify photo belongs to the correct result and inspection
-    if (photo.inspectionResultId !== resultId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Photo does not belong to this inspection result',
-      });
-      return;
-    }
-
-    if (photo.inspectionResult.inspectionId !== inspectionId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Photo does not belong to this inspection',
-      });
-      return;
-    }
-
-    // Delete files from filesystem
+  /**
+   * Get all photos for inspection result
+   * GET /api/inspections/:id/results/:resultId/photos
+   */
+  export const getPhotos = async (req: Request, res: Response): Promise<void> => {
     try {
-      const photoPath = path.join(UPLOAD_DIR, photo.path);
-      await fs.unlink(photoPath);
-
-      if (photo.thumbnailPath) {
-        const thumbnailPath = path.join(UPLOAD_DIR, photo.thumbnailPath);
-        await fs.unlink(thumbnailPath);
+      const user = (req as any).user;
+      if (!user) {
+        res.status(401).json({
+          status: 'error',
+          message: 'Not authenticated',
+        });
+        return;
       }
+
+      const { id: inspectionId, resultId } = req.params;
+
+      // Verify inspection access
+      const { hasAccess } = await verifyInspectionAccess(
+        inspectionId,
+        user.userId,
+        user.role
+      );
+
+      if (!hasAccess) {
+        res.status(403).json({
+          status: 'error',
+          message: 'You do not have permission to view photos for this inspection',
+        });
+        return;
+      }
+
+      // Verify inspection result exists
+      const inspectionResult = await prisma.inspectionResult.findUnique({
+        where: { id: resultId },
+      });
+
+      if (!inspectionResult) {
+        res.status(404).json({
+          status: 'error',
+          message: 'Inspection result not found',
+        });
+        return;
+      }
+
+      if (inspectionResult.inspectionId !== inspectionId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Inspection result does not belong to this inspection',
+        });
+        return;
+      }
+
+      // Get photos
+      const photos = await prisma.photo.findMany({
+        where: { inspectionResultId: resultId },
+        orderBy: { takenAt: 'desc' },
+      });
+
+      // Add relative URLs to photos and parse annotations
+      const cacheBuster = Date.now(); // Add timestamp to prevent caching issues
+      const photosWithUrls = photos.map((photo) => ({
+        ...photo,
+        url: `/uploads/${photo.path}?t=${cacheBuster}`,
+        thumbnailUrl: photo.thumbnailPath ? `/uploads/${photo.thumbnailPath}?t=${cacheBuster}` : null,
+        annotations: typeof photo.annotations === 'string'
+          ? JSON.parse(photo.annotations)
+          : photo.annotations,
+      }));
+
+      res.status(200).json({
+        status: 'success',
+        data: { photos: photosWithUrls },
+        message: `Found ${photos.length} photo(s)`,
+      });
     } catch (error) {
-      console.error('Error deleting photo files:', error);
-      // Continue with database deletion even if file deletion fails
-    }
-
-    // Delete photo record from database
-    await prisma.photo.delete({
-      where: { id: photoId },
-    });
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Photo deleted successfully',
-    });
-  } catch (error) {
-    console.error('Error deleting photo:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to delete photo',
-    });
-  }
-};
-
-/**
- * Update photo annotations
- * PATCH /api/inspections/:id/results/:resultId/photos/:photoId/annotations
- */
-export const updatePhotoAnnotations = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const user = (req as any).user;
-    if (!user) {
-      res.status(401).json({
+      console.error('Error fetching photos:', error);
+      res.status(500).json({
         status: 'error',
-        message: 'Not authenticated',
+        message: 'Failed to fetch photos',
       });
-      return;
     }
+  };
 
-    const { id: inspectionId, resultId, photoId } = req.params;
-    const { arrows, circles, text } = req.body;
+  /**
+   * Delete photo
+   * DELETE /api/inspections/:id/results/:resultId/photos/:photoId
+   */
+  export const deletePhoto = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        res.status(401).json({
+          status: 'error',
+          message: 'Not authenticated',
+        });
+        return;
+      }
 
-    // Verify inspection access
-    const { hasAccess } = await verifyInspectionAccess(
-      inspectionId,
-      user.userId,
-      user.role
-    );
+      const { id: inspectionId, resultId, photoId } = req.params;
 
-    if (!hasAccess) {
-      res.status(403).json({
+      // Verify inspection access
+      const { hasAccess } = await verifyInspectionAccess(
+        inspectionId,
+        user.userId,
+        user.role
+      );
+
+      if (!hasAccess) {
+        res.status(403).json({
+          status: 'error',
+          message: 'You do not have permission to delete photos from this inspection',
+        });
+        return;
+      }
+
+      // Get photo
+      const photo = await prisma.photo.findUnique({
+        where: { id: photoId },
+        include: { inspectionResult: true },
+      });
+
+      if (!photo) {
+        res.status(404).json({
+          status: 'error',
+          message: 'Photo not found',
+        });
+        return;
+      }
+
+      // Verify photo belongs to the correct result and inspection
+      if (photo.inspectionResultId !== resultId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Photo does not belong to this inspection result',
+        });
+        return;
+      }
+
+      if (photo.inspectionResult.inspectionId !== inspectionId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Photo does not belong to this inspection',
+        });
+        return;
+      }
+
+      // Delete files from filesystem
+      try {
+        const photoPath = path.join(UPLOAD_DIR, photo.path);
+        await fs.unlink(photoPath);
+
+        if (photo.thumbnailPath) {
+          const thumbnailPath = path.join(UPLOAD_DIR, photo.thumbnailPath);
+          await fs.unlink(thumbnailPath);
+        }
+      } catch (error) {
+        console.error('Error deleting photo files:', error);
+        // Continue with database deletion even if file deletion fails
+      }
+
+      // Delete photo record from database
+      await prisma.photo.delete({
+        where: { id: photoId },
+      });
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Photo deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      res.status(500).json({
         status: 'error',
-        message: 'You do not have permission to update annotations for this inspection',
+        message: 'Failed to delete photo',
       });
-      return;
     }
+  };
 
-    // Get photo
-    const photo = await prisma.photo.findUnique({
-      where: { id: photoId },
-      include: { inspectionResult: true },
-    });
+  /**
+   * Update photo annotations
+   * PATCH /api/inspections/:id/results/:resultId/photos/:photoId/annotations
+   */
+  export const updatePhotoAnnotations = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        res.status(401).json({
+          status: 'error',
+          message: 'Not authenticated',
+        });
+        return;
+      }
 
-    if (!photo) {
-      res.status(404).json({
-        status: 'error',
-        message: 'Photo not found',
+      const { id: inspectionId, resultId, photoId } = req.params;
+      const { arrows, circles, text } = req.body;
+
+      // Verify inspection access
+      const { hasAccess } = await verifyInspectionAccess(
+        inspectionId,
+        user.userId,
+        user.role
+      );
+
+      if (!hasAccess) {
+        res.status(403).json({
+          status: 'error',
+          message: 'You do not have permission to update annotations for this inspection',
+        });
+        return;
+      }
+
+      // Get photo
+      const photo = await prisma.photo.findUnique({
+        where: { id: photoId },
+        include: { inspectionResult: true },
       });
-      return;
-    }
 
-    // Verify photo belongs to the correct result and inspection
-    if (photo.inspectionResultId !== resultId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Photo does not belong to this inspection result',
-      });
-      return;
-    }
+      if (!photo) {
+        res.status(404).json({
+          status: 'error',
+          message: 'Photo not found',
+        });
+        return;
+      }
 
-    if (photo.inspectionResult.inspectionId !== inspectionId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Photo does not belong to this inspection',
-      });
-      return;
-    }
+      // Verify photo belongs to the correct result and inspection
+      if (photo.inspectionResultId !== resultId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Photo does not belong to this inspection result',
+        });
+        return;
+      }
 
-    // Prepare annotations object
-    const annotations = {
-      arrows: arrows || [],
-      circles: circles || [],
-      text: text || [],
-    };
+      if (photo.inspectionResult.inspectionId !== inspectionId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Photo does not belong to this inspection',
+        });
+        return;
+      }
 
-    console.log('Saving annotations:', JSON.stringify(annotations));
+      // Prepare annotations object
+      const annotations = {
+        arrows: arrows || [],
+        circles: circles || [],
+        text: text || [],
+      };
 
-    // Update photo annotations
-    const updatedPhoto = await prisma.photo.update({
-      where: { id: photoId },
-      data: {
-        annotations: JSON.stringify(annotations),
-      },
-    });
+      console.log('Saving annotations:', JSON.stringify(annotations));
 
-    console.log('Saved annotations to DB:', updatedPhoto.annotations);
-
-    // Return photo with relative URLs
-    const parsedAnnotations = updatedPhoto.annotations
-      ? JSON.parse(updatedPhoto.annotations)
-      : { arrows: [], circles: [], text: [] };
-
-    console.log('Returning parsed annotations:', JSON.stringify(parsedAnnotations));
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        photo: {
-          ...updatedPhoto,
-          url: `/uploads/${updatedPhoto.path}`,
-          thumbnailUrl: updatedPhoto.thumbnailPath
-            ? `/uploads/${updatedPhoto.thumbnailPath}`
-            : null,
-          annotations: parsedAnnotations,
+      // Update photo annotations
+      const updatedPhoto = await prisma.photo.update({
+        where: { id: photoId },
+        data: {
+          annotations: JSON.stringify(annotations),
         },
-      },
-      message: 'Photo annotations updated successfully',
-    });
-  } catch (error) {
-    console.error('Error updating photo annotations:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to update photo annotations',
-    });
-  }
-};
+      });
+
+      console.log('Saved annotations to DB:', updatedPhoto.annotations);
+
+      // Return photo with relative URLs
+      const parsedAnnotations = updatedPhoto.annotations
+        ? JSON.parse(updatedPhoto.annotations)
+        : { arrows: [], circles: [], text: [] };
+
+      console.log('Returning parsed annotations:', JSON.stringify(parsedAnnotations));
+
+      res.status(200).json({
+        status: 'success',
+        data: {
+          photo: {
+            ...updatedPhoto,
+            url: `/uploads/${updatedPhoto.path}`,
+            thumbnailUrl: updatedPhoto.thumbnailPath
+              ? `/uploads/${updatedPhoto.thumbnailPath}`
+              : null,
+            annotations: parsedAnnotations,
+          },
+        },
+        message: 'Photo annotations updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating photo annotations:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to update photo annotations',
+      });
+    }
+  };

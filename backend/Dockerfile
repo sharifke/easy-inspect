@@ -16,16 +16,19 @@ RUN apt-get update \
 COPY package*.json ./
 RUN npm install
 
-# Copy source
+# Copy source code
 COPY . .
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build TypeScript to JavaScript
+# Build TypeScript code
 RUN npm run build
 
-# Prune dev dependencies to save space (optional, but good practice)
+# Create uploads directory and set permissions
+RUN mkdir -p uploads && chmod 777 uploads
+
+# Expose portdev dependencies to save space (optional, but good practice)
 # RUN npm prune --production
 
 # Expose port
