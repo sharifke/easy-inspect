@@ -19,7 +19,8 @@ services:
     build: ./frontend
     restart: always
     ports:
-      - "3080:80" # Access app at http://localhost:3080 or http://<server-ip>:3080
+      - "3080:80" # HTTP Access
+      - "3443:443" # HTTPS Access (for Camera)
     depends_on:
       - backend
     networks:

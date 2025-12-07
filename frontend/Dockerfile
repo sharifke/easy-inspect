@@ -26,6 +26,14 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN chmod -R 755 /usr/share/nginx/html && \
     chown -R nginx:nginx /usr/share/nginx/html
 
-EXPOSE 80
+# Install OpenSSL and generate self-signed certificate
+RUN apk add --no-cache openssl && \
+    mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx.key \
+    -out /etc/nginx/ssl/nginx.crt \
+    -subj "/C=NL/ST=State/L=City/O=EasyData/CN=localhost"
+
+EXPOSE 80 443
 
 CMD ["nginx", "-g", "daemon off;"]
