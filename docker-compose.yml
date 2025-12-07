@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    restart: always
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/prisma/dev.db:/app/prisma/dev.db
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      # Add other env vars here (JWT_SECRET, etc)
+    networks:
+      - elektroinspect-network
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "3080:80" # Access app at http://localhost:3080 or http://<server-ip>:3080
+    depends_on:
+      - backend
+    networks:
+      - elektroinspect-network
+
+networks:
+  elektroinspect-network:
+    driver: bridge

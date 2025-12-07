@@ -1,0 +1,368 @@
+================================================================================
+JWT AUTHENTICATION FLOW DIAGRAM - ElektroInspect
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           AUTHENTICATION FLOW                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. USER LOGIN FLOW
+═══════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│ (Login Page)│         │ (AuthCtx)   │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ User enters           │                        │
+       │ email/password        │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ POST /api/auth/login   │
+       │                       │ {email, password}      │
+       │                       │───────────────────────>│
+       │                       │                        │
+       │                       │                        │ Verify credentials
+       │                       │                        │ Hash password check
+       │                       │                        │ Generate JWT token
+       │                       │                        │
+       │                       │   { token, user }      │
+       │                       │<───────────────────────│
+       │                       │                        │
+       │   Store in            │                        │
+       │   localStorage        │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+       │ Redirect to dashboard │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+2. PROTECTED ROUTE ACCESS
+══════════════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│  (Any Page) │         │(Protected)  │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ Access protected page │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ Check localStorage     │
+       │                       │ for token              │
+       │                       │                        │
+       │                       │ GET /api/auth/me       │
+       │                       │ Authorization: Bearer  │
+       │                       │ <token>                │
+       │                       │───────────────────────>│
+       │                       │                        │
+       │                       │                        │ Verify JWT
+       │                       │                        │ Check expiration
+       │                       │                        │ Load user from DB
+       │                       │                        │
+       │                       │   { user }             │
+       │                       │<───────────────────────│
+       │                       │                        │
+       │   Show protected      │                        │
+       │   content             │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+3. UNAUTHORIZED ACCESS ATTEMPT
+═══════════════════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│  (Any Page) │         │(Protected)  │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ Access protected page │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ Check localStorage     │
+       │                       │ No token found!        │
+       │                       │                        │
+       │ Redirect to /login    │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+4. EXPIRED TOKEN HANDLING
+══════════════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│  (Any Page) │         │(Protected)  │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ Access protected page │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ GET /api/auth/me       │
+       │                       │ Authorization: Bearer  │
+       │                       │ <expired-token>        │
+       │                       │───────────────────────>│
+       │                       │                        │
+       │                       │                        │ Verify JWT
+       │                       │                        │ Token expired!
+       │                       │                        │
+       │                       │   401 Unauthorized     │
+       │                       │   "Token has expired"  │
+       │                       │<───────────────────────│
+       │                       │                        │
+       │   Clear localStorage  │                        │
+       │   Redirect to /login  │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+5. API REQUEST WITH JWT
+════════════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│             │         │   (Axios)   │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ Make API request      │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ Axios interceptor      │
+       │                       │ adds JWT from          │
+       │                       │ localStorage           │
+       │                       │                        │
+       │                       │ GET /api/inspections   │
+       │                       │ Authorization: Bearer  │
+       │                       │ <token>                │
+       │                       │───────────────────────>│
+       │                       │                        │
+       │                       │                        │ Auth middleware
+       │                       │                        │ verifies token
+       │                       │                        │ attaches user to req
+       │                       │                        │
+       │                       │                        │ Controller handles
+       │                       │                        │ request with user
+       │                       │                        │ context
+       │                       │                        │
+       │                       │   { data }             │
+       │                       │<───────────────────────│
+       │                       │                        │
+       │   Display data        │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+6. LOGOUT FLOW
+═══════════════
+
+┌─────────────┐         ┌─────────────┐
+│   Browser   │         │  Frontend   │
+│             │         │ (AuthCtx)   │
+└──────┬──────┘         └──────┬──────┘
+       │                       │
+       │ User clicks logout    │
+       │──────────────────────>│
+       │                       │
+       │                       │ Clear user state
+       │                       │ Clear token state
+       │                       │ Remove from localStorage
+       │                       │
+       │ Redirect to /login    │
+       │<──────────────────────│
+       │                       │
+
+
+7. AUTO-LOGIN ON PAGE LOAD
+═══════════════════════════
+
+┌─────────────┐         ┌─────────────┐         ┌──────────────┐
+│   Browser   │         │  Frontend   │         │   Backend    │
+│             │         │(AuthCtx)    │         │   (API)      │
+└──────┬──────┘         └──────┬──────┘         └──────┬───────┘
+       │                       │                        │
+       │ Page loads            │                        │
+       │──────────────────────>│                        │
+       │                       │                        │
+       │                       │ useEffect() runs       │
+       │                       │ Check localStorage     │
+       │                       │                        │
+       │                       │ Token found!           │
+       │                       │                        │
+       │                       │ GET /api/auth/me       │
+       │                       │ Authorization: Bearer  │
+       │                       │ <token>                │
+       │                       │───────────────────────>│
+       │                       │                        │
+       │                       │                        │ Verify JWT
+       │                       │                        │ Load user from DB
+       │                       │                        │
+       │                       │   { user }             │
+       │                       │<───────────────────────│
+       │                       │                        │
+       │   User auto-logged in │                        │
+       │   Show app content    │                        │
+       │<──────────────────────│                        │
+       │                       │                        │
+
+
+================================================================================
+COMPONENT ARCHITECTURE
+================================================================================
+
+Frontend Components:
+────────────────────
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          App.tsx                                │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                    AuthProvider                           │  │
+│  │  - Manages auth state (user, token, isLoading)            │  │
+│  │  - Provides login(), logout(), register()                 │  │
+│  │  - Auto-login on mount                                    │  │
+│  │  - Axios interceptor setup                                │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │                  Router                             │  │  │
+│  │  │  ┌───────────────────────────────────────────────┐  │  │  │
+│  │  │  │  Public Routes                                │  │  │  │
+│  │  │  │  - /login → Login.tsx                         │  │  │  │
+│  │  │  └───────────────────────────────────────────────┘  │  │  │
+│  │  │  ┌───────────────────────────────────────────────┐  │  │  │
+│  │  │  │  Protected Routes                             │  │  │  │
+│  │  │  │  ┌─────────────────────────────────────────┐  │  │  │  │
+│  │  │  │  │    ProtectedRoute (allowedRoles)        │  │  │  │  │
+│  │  │  │  │    - Checks isAuthenticated             │  │  │  │  │
+│  │  │  │  │    - Checks user role                   │  │  │  │  │
+│  │  │  │  │    - Shows loading or redirects         │  │  │  │  │
+│  │  │  │  │    ┌───────────────────────────────┐    │  │  │  │  │
+│  │  │  │  │    │  /admin/* (ADMIN only)        │    │  │  │  │  │
+│  │  │  │  │    │  /inspector/* (INSP + ADMIN)  │    │  │  │  │  │
+│  │  │  │  │    └───────────────────────────────┘    │  │  │  │  │
+│  │  │  │  └─────────────────────────────────────────┘  │  │  │  │
+│  │  │  └───────────────────────────────────────────────┘  │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+
+
+Backend API Structure:
+──────────────────────
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        Express Server                           │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Middleware Stack                                         │  │
+│  │  - helmet() - Security headers                            │  │
+│  │  - cors() - CORS protection                               │  │
+│  │  - express.json() - JSON parsing                          │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Routes                                                   │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │  /api/auth (Public)                                 │  │  │
+│  │  │  - POST /login → auth.controller.login()            │  │  │
+│  │  │  - POST /register → auth.controller.register()      │  │  │
+│  │  │  ┌───────────────────────────────────────────────┐  │  │  │
+│  │  │  │  GET /me (Protected)                          │  │  │  │
+│  │  │  │  ┌─────────────────────────────────────────┐  │  │  │  │
+│  │  │  │  │  authenticate middleware                │  │  │  │  │
+│  │  │  │  │  - Extract Bearer token                 │  │  │  │  │
+│  │  │  │  │  - Verify JWT                           │  │  │  │  │
+│  │  │  │  │  - Load user from DB                    │  │  │  │  │
+│  │  │  │  │  - Attach to req.user                   │  │  │  │  │
+│  │  │  │  └─────────────────────────────────────────┘  │  │  │  │
+│  │  │  │  → auth.controller.getMe()                    │  │  │  │
+│  │  │  └───────────────────────────────────────────────┘  │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Error Handling                                           │  │
+│  │  - 404 handler                                            │  │
+│  │  - errorHandler middleware                                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+DATA FLOW
+================================================================================
+
+JWT Token Structure:
+────────────────────
+{
+  "userId": "uuid",
+  "email": "admin@elektroinspect.nl",
+  "role": "ADMIN",
+  "iat": 1700000000,  // Issued at
+  "exp": 1700604800   // Expires (7 days later)
+}
+
+localStorage Storage:
+─────────────────────
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "admin@elektroinspect.nl",
+    "firstName": "Admin",
+    "lastName": "ElektroInspect",
+    "role": "ADMIN",
+    ...
+  }
+}
+
+Request Headers:
+────────────────
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Express Request Object (after auth middleware):
+────────────────────────────────────────────────
+req.user = {
+  userId: "uuid",
+  email: "admin@elektroinspect.nl",
+  role: "ADMIN",
+  firstName: "Admin",
+  lastName: "ElektroInspect"
+}
+
+
+================================================================================
+SECURITY LAYERS
+================================================================================
+
+Layer 1: Frontend
+─────────────────
+✅ Protected routes check authentication
+✅ Role-based route access
+✅ Token stored securely in localStorage
+✅ Auto-logout on token expiration
+✅ Form validation
+
+Layer 2: Network
+────────────────
+✅ CORS protection (specific origin)
+✅ HTTPS in production (recommended)
+✅ Helmet security headers
+✅ Bearer token format
+
+Layer 3: Backend
+────────────────
+✅ JWT signature verification
+✅ Token expiration check
+✅ User existence validation
+✅ Account status check (active/inactive)
+✅ Password hashing (bcrypt, 10 rounds)
+✅ Role-based authorization
+
+Layer 4: Database
+─────────────────
+✅ Hashed passwords only
+✅ User account status
+✅ Role-based permissions
+✅ Audit logging (optional)
+
+
+================================================================================
+END OF FLOW DIAGRAM
+================================================================================
