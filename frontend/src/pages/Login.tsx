@@ -41,14 +41,18 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h1 className="text-center text-4xl font-bold text-primary-600 mb-2">
-            ElektroInspect
-          </h1>
+          <div className="flex justify-center mb-6">
+            <img
+              src="/logo.jpg"
+              alt="Easy Data Logo"
+              className="h-32 w-auto rounded-xl shadow-lg"
+            />
+          </div>
           <h2 className="text-center text-2xl font-semibold text-gray-900">
             Sign in to your account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Electrical Installation Inspection Management System
+            Easy Data Inspection Platform
           </p>
         </div>
 
