@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 /**
  * HTML Template Service for PDF Reports
  * Generates HTML templates for inspection reports
@@ -12,10 +15,37 @@ interface ReportData {
 
 export class ReportTemplateService {
   /**
+    * Get logo as base64
+    */
+  private static getLogoBase64(): string {
+    try {
+      // In production (Docker), path is /app/dist/assets/logo.jpg
+      // In development, it might be src/assets/logo.jpg
+      // We look relative to __dirname
+      const possiblePaths = [
+        path.join(__dirname, '../assets/logo.jpg'), // Production: dist/services/../assets -> dist/assets
+        path.join(__dirname, '../../src/assets/logo.jpg'), // Dev: src/services/../../src/assets -> src/assets
+      ];
+
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          const bitmap = fs.readFileSync(p);
+          return `data:image/jpeg;base64,${bitmap.toString('base64')}`;
+        }
+      }
+      return '';
+    } catch (e) {
+      console.error('Error reading logo file:', e);
+      return '';
+    }
+  }
+
+  /**
    * Generate complete HTML for inspection report
    */
   static generateHTML(data: ReportData): string {
     const { inspection, template, results } = data;
+    const logoBase64 = this.getLogoBase64();
 
     return `
 <!DOCTYPE html>
@@ -29,7 +59,7 @@ export class ReportTemplateService {
   </style>
 </head>
 <body>
-  ${this.generateHeader(inspection, template)}
+  ${this.generateHeader(inspection, template, logoBase64)}
   ${this.generateClientInfo(inspection)}
   ${this.generatePrioritySummary(results)}
   ${this.generateResults(results)}
@@ -46,6 +76,11 @@ export class ReportTemplateService {
    * CSS Styles for the report
    */
   private static getStyles(): string {
+    // Easy Data Theme Colors
+    // Primary: #0284c7 (Sky 600)
+    // Secondary: #0ea5e9 (Sky 500)
+    // Dark: #0c4a6e (Sky 900)
+
     return `
       * {
         margin: 0;
@@ -57,7 +92,7 @@ export class ReportTemplateService {
         font-family: 'Helvetica', Arial, sans-serif;
         font-size: 10pt;
         line-height: 1.4;
-        color: #000;
+        color: #1a1a1a;
         padding: 40px;
       }
 
@@ -65,13 +100,23 @@ export class ReportTemplateService {
         text-align: center;
         margin-bottom: 30px;
         padding-bottom: 20px;
-        border-bottom: 3px solid #0066cc;
+        border-bottom: 3px solid #0284c7;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .logo-img {
+        max-height: 80px;
+        margin-bottom: 15px;
       }
 
       .header h1 {
         font-size: 24pt;
-        color: #0066cc;
+        color: #0c4a6e;
         margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
       }
 
       .header .subtitle {
@@ -88,10 +133,10 @@ export class ReportTemplateService {
       .section-title {
         font-size: 14pt;
         font-weight: bold;
-        color: #0066cc;
+        color: #0284c7;
         margin-bottom: 10px;
         padding-bottom: 5px;
-        border-bottom: 2px solid #e0e0e0;
+        border-bottom: 2px solid #e0f2fe;
       }
 
       .info-grid {
@@ -103,11 +148,11 @@ export class ReportTemplateService {
 
       .info-label {
         font-weight: bold;
-        color: #555;
+        color: #0c4a6e;
       }
 
       .info-value {
-        color: #000;
+        color: #333;
       }
 
       .summary-table {
@@ -119,30 +164,21 @@ export class ReportTemplateService {
       .summary-table th {
         text-align: left;
         padding: 8px;
-        background-color: #f0f0f0;
-        border-bottom: 2px solid #ddd;
-        color: #333;
+        background-color: #f0f9ff;
+        border-bottom: 2px solid #bae6fd;
+        color: #0c4a6e;
       }
 
       .summary-table td {
         padding: 8px;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid #f0f0f0;
         vertical-align: top;
-      }
-
-      .summary-row-C1 {
-        background-color: #fff5f5;
-      }
-
-      .summary-row-C2 {
-        background-color: #fffaf0;
       }
 
       .quotation-box {
         background-color: #f0f9ff;
-        border: 1px solid #b9e6fe;
+        border-left: 4px solid #0284c7;
         padding: 15px;
-        border-radius: 5px;
         margin-bottom: 25px;
         page-break-inside: avoid;
       }
@@ -156,17 +192,20 @@ export class ReportTemplateService {
 
       .result-item {
         margin-bottom: 20px;
-        padding: 12px;
-        background: #f9f9f9;
-        border-left: 4px solid #0066cc;
+        padding: 15px;
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 4px;
         page-break-inside: avoid;
       }
 
       .result-header {
         font-weight: bold;
         font-size: 11pt;
-        margin-bottom: 8px;
-        color: #0066cc;
+        margin-bottom: 10px;
+        color: #0c4a6e;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
       }
 
       .result-details {
@@ -182,10 +221,16 @@ export class ReportTemplateService {
         font-size: 9pt;
       }
 
-      .result-value {
-        color: #000;
+      .footer {
+        margin-top: 50px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e0e0;
+        text-align: center;
+        font-size: 8pt;
+        color: #888;
       }
-
+      
+      /* Keep other classes like .rating, .classification same but customized if needed */
       .rating {
         display: inline-block;
         padding: 3px 8px;
@@ -193,22 +238,10 @@ export class ReportTemplateService {
         font-weight: bold;
         font-size: 9pt;
       }
-
-      .rating.GOED {
-        background: #d4edda;
-        color: #155724;
-      }
-
-      .rating.ACCEPTABEL {
-        background: #fff3cd;
-        color: #856404;
-      }
-
-      .rating.ONVOLDOENDE {
-        background: #f8d7da;
-        color: #721c24;
-      }
-
+      .rating.GOED { background: #dcfce7; color: #166534; }
+      .rating.ACCEPTABEL { background: #fef9c3; color: #854d0e; }
+      .rating.ONVOLDOENDE { background: #fee2e2; color: #991b1b; }
+      
       .classification {
         display: inline-block;
         padding: 3px 8px;
@@ -216,36 +249,18 @@ export class ReportTemplateService {
         font-weight: bold;
         font-size: 9pt;
       }
-
-      .classification.C1 {
-        background: #fee2e2;
-        color: #991b1b;
-      }
-
-      .classification.C2 {
-        background: #ffedd5;
-        color: #9a3412;
-      }
-
-      .classification.C3 {
-        background: #fef3c7;
-        color: #92400e;
-      }
-
-      .classification.ACCEPTABLE {
-        background: #dcfce7;
-        color: #166534;
-      }
+      .classification.C1 { background: #fee2e2; color: #991b1b; }
+      .classification.C2 { background: #ffedd5; color: #9a3412; }
+      .classification.C3 { background: #fef3c7; color: #92400e; }
 
       .photos-container {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 15px;
-        margin-top: 10px;
+        margin-top: 15px;
       }
 
       .photo-item {
-        page-break-inside: avoid;
         text-align: center;
       }
 
@@ -253,86 +268,39 @@ export class ReportTemplateService {
         position: relative;
         width: 100%;
         border: 1px solid #ddd;
-        background: #fff;
-        padding: 5px;
+        padding: 4px;
+        background: white;
       }
-
-      .photo-wrapper img {
-        width: 100%;
-        height: auto;
-        display: block;
-      }
-
-      .photo-wrapper canvas {
-        position: absolute;
-        top: 5px;
-        left: 5px;
-        pointer-events: none;
-      }
-
-      .photo-caption {
-        font-size: 8pt;
-        color: #666;
-        margin-top: 5px;
-        font-style: italic;
-      }
-
-      .notes-section {
-        background: #f9f9f9;
-        padding: 15px;
-        border-radius: 5px;
-        margin-top: 10px;
-      }
-
-      .signature-section {
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 2px solid #e0e0e0;
-      }
-
+      
+      .photo-wrapper img { width: 100%; height: auto; display: block; }
+      .photo-caption { font-size: 8pt; color: #666; margin-top: 4px; font-style: italic; }
+      
       .signature-img {
-        max-width: 300px;
-        height: auto;
-        border: 1px solid #ddd;
-        padding: 10px;
-        background: #fff;
-      }
-
-      .footer {
-        margin-top: 50px;
-        padding-top: 20px;
-        border-top: 2px solid #e0e0e0;
-        text-align: center;
-        font-size: 8pt;
-        color: #666;
-      }
-
-      @media print {
-        body {
-          padding: 20px;
-        }
-
-        .section {
-          page-break-inside: avoid;
-        }
-      }
+         border-bottom: 1px solid #000;
+         padding-bottom: 5px;
+         max-width: 250px;
+       }
     `;
   }
 
   /**
    * Generate header section
    */
-  private static generateHeader(inspection: any, template: any): string {
+  private static generateHeader(inspection: any, template: any, logoBase64: string): string {
     const completedDate = inspection.completedAt
       ? new Date(inspection.completedAt).toLocaleDateString('nl-NL')
       : 'Niet afgerond';
 
+    const logoHtml = logoBase64
+      ? `<img src="${logoBase64}" class="logo-img" alt="Logo" />`
+      : '';
+
     return `
       <div class="header">
-        <h1>INSPECTIE RAPPORT</h1>
+        ${logoHtml}
+        <h1>Easy Data Rapportage</h1>
         <div class="subtitle">${template.name}</div>
-        <div class="subtitle">Installatietype: ${template.installationType}</div>
-        <div class="subtitle">Inspectie ID: ${inspection.id.substring(0, 8)}</div>
+        <div class="subtitle">${inspection.clientName} | ${inspection.location}</div>
         <div class="subtitle">Datum: ${completedDate}</div>
       </div>
     `;
@@ -344,28 +312,19 @@ export class ReportTemplateService {
   private static generateClientInfo(inspection: any): string {
     return `
       <div class="section">
-        <div class="section-title">Klantgegevens</div>
+        <div class="section-title">Projectgegevens</div>
         <div class="info-grid">
-          <div class="info-label">Naam:</div>
+          <div class="info-label">Klant:</div>
           <div class="info-value">${inspection.clientName || '-'}</div>
-
-          <div class="info-label">Email:</div>
-          <div class="info-value">${inspection.clientEmail || '-'}</div>
-
-          <div class="info-label">Telefoon:</div>
-          <div class="info-value">${inspection.clientPhone || '-'}</div>
 
           <div class="info-label">Locatie:</div>
           <div class="info-value">${inspection.location || '-'}</div>
 
           <div class="info-label">Adres:</div>
-          <div class="info-value">${inspection.address || '-'}</div>
-
-          <div class="info-label">Stad:</div>
-          <div class="info-value">${inspection.city || '-'}</div>
-
-          <div class="info-label">Postcode:</div>
-          <div class="info-value">${inspection.postalCode || '-'}</div>
+          <div class="info-value">${inspection.address || ''} ${inspection.city ? ', ' + inspection.city : ''}</div>
+          
+          <div class="info-label">Inspecteur:</div>
+          <div class="info-value">${inspection.inspector?.firstName} ${inspection.inspector?.lastName}</div>
         </div>
       </div>
     `;
@@ -385,8 +344,8 @@ export class ReportTemplateService {
     if (priorityItems.length === 0) {
       return `
         <div class="section">
-          <div class="section-title">Prioriteiten Overzicht</div>
-          <p>Er zijn geen kritieke (C1), ernstige (C2) of minder ernstige (C3) gebreken geconstateerd die directe aandacht vereisen.</p>
+          <div class="section-title">Managementsamenvatting</div>
+          <p>Tijdens de inspectie zijn geen gebreken geconstateerd die classificatie C1, C2 of C3 hebben.</p>
         </div>
       `;
     }
@@ -394,7 +353,7 @@ export class ReportTemplateService {
     const summaryRows = priorityItems
       .map(
         (item) => `
-        <tr class="summary-row-${item.classification}">
+        <tr>
           <td><strong>${item.classification}</strong></td>
           <td>${item.subComponent.mainComponent.name} - ${item.subComponent.name}</td>
           <td>${item.notes || '-'}</td>
@@ -405,26 +364,20 @@ export class ReportTemplateService {
 
     return `
       <div class="section">
-        <div class="section-title">Prioriteiten Overzicht (Actie Vereist)</div>
-        <p style="margin-bottom: 10px;">Onderstaande punten vereisen uw aandacht op basis van de classificatie:</p>
+        <div class="section-title">Managementsamenvatting</div>
+        <p style="margin-bottom: 10px;">De volgende aandachtspunten zijn geconstateerd:</p>
         <table class="summary-table">
           <thead>
             <tr>
-              <th style="width: 60px;">Code</th>
+              <th style="width: 50px;">Code</th>
               <th>Onderdeel</th>
-              <th>Opmerking</th>
+              <th>Bevinding</th>
             </tr>
           </thead>
           <tbody>
             ${summaryRows}
           </tbody>
         </table>
-        <div style="font-size: 9pt; color: #666;">
-          <strong>Legenda:</strong><br>
-          <strong>C1:</strong> Direct gevaar - Onmiddellijke actie vereist.<br>
-          <strong>C2:</strong> Potentieel gevaar - Actie vereist op korte termijn.<br>
-          <strong>C3:</strong> Minder ernstig gebrek - Actie vereist op langere termijn (aanbeveling).
-        </div>
       </div>
     `;
   }
@@ -433,22 +386,19 @@ export class ReportTemplateService {
    * Generate quotation request text
    */
   private static generateQuotationText(results: any[]): string {
+    // Keep existing implementation but styled with new CSS
     if (!results) return '';
-
     const hasPriorityItems = results.some(
       (r) => r.classification === 'C1' || r.classification === 'C2' || r.classification === 'C3'
     );
-
     if (!hasPriorityItems) return '';
 
     return `
       <div class="section quotation-box">
-        <div class="quotation-title">Offerte Aanvraag</div>
+        <div class="quotation-title">Opvolging & Offerte</div>
         <p>
-          Op basis van de geconstateerde gebreken (met classificatie C1, C2 en/of C3) adviseren wij u dringend om deze te laten herstellen om de veiligheid van uw installatie te waarborgen.
-        </p>
-        <p style="margin-top: 10px;">
-          U kunt hiervoor vrijblijvend een offerte bij ons aanvragen. Neem contact met ons op via de gegevens in dit rapport of reageer op de e-mail waarmee u dit rapport heeft ontvangen. Wij stellen graag een herstelplan voor u op.
+          Wij adviseren u om de geconstateerde gebreken te laten verhelpen. 
+          Neem contact op voor een vrijblijvende herstelofferte.
         </p>
       </div>
     `;
@@ -458,42 +408,26 @@ export class ReportTemplateService {
    * Generate inspection results section
    */
   private static generateResults(results: any[]): string {
-    if (!results || results.length === 0) {
-      return `
-        <div class="section">
-          <div class="section-title">Inspectie Resultaten</div>
-          <p>Geen resultaten beschikbaar.</p>
-        </div>
-      `;
-    }
+    if (!results || results.length === 0) return '';
 
     const resultsHTML = results
       .map(
         (result) => `
         <div class="result-item">
-          <div class="result-header">${result.subComponent.mainComponent.name} - ${result.subComponent.name}</div>
+          <div class="result-header">${result.subComponent.mainComponent.name} : ${result.subComponent.name}</div>
           <div class="result-details">
-            <div class="result-label">Criterium:</div>
-            <div class="result-value">${result.subComponent.criterion || '-'}</div>
-
-            <div class="result-label">Beoordeling:</div>
+            <div class="result-label">Status:</div>
             <div class="result-value">
-              <span class="rating ${result.rating}">${result.rating}</span>
+               <span class="rating ${result.rating}">${result.rating}</span>
+               ${result.classification ? `<span class="classification ${result.classification}" style="margin-left:10px;">${result.classification}</span>` : ''}
             </div>
-
-            <div class="result-label">Classificatie:</div>
-            <div class="result-value">
-              <span class="classification ${result.classification}">${result.classification}</span>
-            </div>
-
-            ${
-              result.notes
-                ? `
-            <div class="result-label">Opmerkingen:</div>
+             ${result.notes
+            ? `
+            <div class="result-label">Opmerking:</div>
             <div class="result-value">${result.notes}</div>
             `
-                : ''
-            }
+            : ''
+          }
           </div>
           ${this.generatePhotos(result.photos)}
         </div>
@@ -503,7 +437,7 @@ export class ReportTemplateService {
 
     return `
       <div class="section">
-        <div class="section-title">Inspectie Resultaten</div>
+        <div class="section-title">Gedetailleerde Bevindingen</div>
         ${resultsHTML}
       </div>
     `;
@@ -513,34 +447,21 @@ export class ReportTemplateService {
    * Generate photos section for a result
    */
   private static generatePhotos(photos: any[]): string {
-    if (!photos || photos.length === 0) {
-      return '';
-    }
+    if (!photos || photos.length === 0) return '';
 
     const photosHTML = photos
       .map((photo) => {
-        console.log('[TEMPLATE] Processing photo:', photo.originalName);
-        console.log('[TEMPLATE] Raw annotations:', photo.annotations);
-
         const annotations = photo.annotations ? JSON.parse(photo.annotations) : null;
-        console.log('[TEMPLATE] Parsed annotations:', annotations);
-
-        // Generate canvas for annotations if they exist
         const canvasHTML = annotations ? this.generateAnnotationsCanvas(photo, annotations) : '';
-        console.log('[TEMPLATE] Canvas HTML length:', canvasHTML.length);
-
-        // Use base64 data URL if available, otherwise skip the photo
-        if (!photo.base64Data) {
-          return '';
-        }
+        if (!photo.base64Data) return '';
 
         return `
           <div class="photo-item">
             <div class="photo-wrapper">
-              <img src="${photo.base64Data}" alt="${photo.originalName}" />
+              <img src="${photo.base64Data}" alt="Foto" />
               ${canvasHTML}
             </div>
-            <div class="photo-caption">${photo.originalName}</div>
+            ${photo.originalName ? `<div class="photo-caption">${photo.originalName}</div>` : ''}
           </div>
         `;
       })
@@ -557,87 +478,56 @@ export class ReportTemplateService {
    * Generate canvas element with annotations
    */
   private static generateAnnotationsCanvas(_photo: any, annotations: any): string {
-    // We'll render annotations using inline SVG with viewBox for better PDF compatibility
     const svgElements: string[] = [];
-
-    // Use viewBox 0 0 1000 1000 to work with normalized coordinates
     const scale = 1000;
-
-    // NOTE: Coordinates are stored as percentages (0-100), so we divide by 100 first
     const toViewBox = (percentage: number) => (percentage / 100) * scale;
 
-    // Render arrows
-    if (annotations.arrows && annotations.arrows.length > 0) {
+    if (annotations.arrows) {
       annotations.arrows.forEach((arrow: any) => {
         const x1 = toViewBox(arrow.startX);
         const y1 = toViewBox(arrow.startY);
         const x2 = toViewBox(arrow.endX);
         const y2 = toViewBox(arrow.endY);
-        const color = arrow.color || '#ff0000';
-        const width = arrow.width || 2;
+        const color = arrow.color || '#ef4444'; // Red-500
+        const width = arrow.width || 3;
 
-        // Arrow line
         svgElements.push(`
-          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke="${color}" stroke-width="${width * 2}" />
+          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width * 2}" />
         `);
-
-        // Arrowhead
+        // Arrowhead logic simplified for brevity (could reuse existing)
         const angle = Math.atan2(y2 - y1, x2 - x1);
-        const headLength = 20;
-        const head1X = x2 - headLength * Math.cos(angle - Math.PI / 6);
-        const head1Y = y2 - headLength * Math.sin(angle - Math.PI / 6);
-        const head2X = x2 - headLength * Math.cos(angle + Math.PI / 6);
-        const head2Y = y2 - headLength * Math.sin(angle + Math.PI / 6);
-
+        const headlen = 20;
         svgElements.push(`
-          <line x1="${x2}" y1="${y2}" x2="${head1X}" y2="${head1Y}"
-                stroke="${color}" stroke-width="${width * 2}" />
-          <line x1="${x2}" y1="${y2}" x2="${head2X}" y2="${head2Y}"
-                stroke="${color}" stroke-width="${width * 2}" />
+           <line x1="${x2}" y1="${y2}" x2="${x2 - headlen * Math.cos(angle - Math.PI / 6)}" y2="${y2 - headlen * Math.sin(angle - Math.PI / 6)}" stroke="${color}" stroke-width="${width * 2}" />
+           <line x1="${x2}" y1="${y2}" x2="${x2 - headlen * Math.cos(angle + Math.PI / 6)}" y2="${y2 - headlen * Math.sin(angle + Math.PI / 6)}" stroke="${color}" stroke-width="${width * 2}" />
         `);
       });
     }
 
-    // Render circles
-    if (annotations.circles && annotations.circles.length > 0) {
+    if (annotations.circles) {
       annotations.circles.forEach((circle: any) => {
-        const cx = toViewBox(circle.x);
-        const cy = toViewBox(circle.y);
-        const r = toViewBox(circle.radius) * 0.5;
-        const color = circle.color || '#ff0000';
-        const width = circle.width || 2;
-
         svgElements.push(`
-          <circle cx="${cx}" cy="${cy}" r="${r}"
-                  fill="none" stroke="${color}" stroke-width="${width * 2}" />
+          <circle cx="${toViewBox(circle.x)}" cy="${toViewBox(circle.y)}" r="${toViewBox(circle.radius) * 0.5}" 
+                  fill="none" stroke="${circle.color || '#ef4444'}" stroke-width="${(circle.width || 3) * 2}" />
         `);
       });
     }
 
-    // Render text annotations
-    if (annotations.text && annotations.text.length > 0) {
+    if (annotations.text) {
       annotations.text.forEach((textItem: any) => {
-        const x = toViewBox(textItem.x);
-        const y = toViewBox(textItem.y);
-        const color = textItem.color || '#ff0000';
-        const fontSize = (textItem.fontSize || 12) * 2;
-
         svgElements.push(`
-          <text x="${x}" y="${y}" fill="${color}"
-                font-size="${fontSize}" font-weight="bold" font-family="Helvetica">
-            ${textItem.text}
-          </text>
-        `);
+            <text x="${toViewBox(textItem.x)}" y="${toViewBox(textItem.y)}" fill="${textItem.color || '#ef4444'}"
+                    font-size="${(textItem.fontSize || 14) * 2}" font-weight="bold" font-family="Helvetica">
+                ${textItem.text}
+            </text>
+            `);
       });
     }
 
-    if (svgElements.length === 0) {
-      return '';
-    }
+    if (svgElements.length === 0) return '';
 
     return `
-      <svg viewBox="0 0 ${scale} ${scale}" preserveAspectRatio="none" style="position: absolute; top: 5px; left: 5px; width: calc(100% - 10px); height: calc(100% - 10px); pointer-events: none;">
+      <svg viewBox="0 0 ${scale} ${scale}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
         ${svgElements.join('')}
       </svg>
     `;
@@ -647,34 +537,14 @@ export class ReportTemplateService {
    * Generate notes and recommendations section
    */
   private static generateNotes(inspection: any): string {
-    if (!inspection.overallNotes && !inspection.recommendations) {
-      return '';
-    }
+    if (!inspection.overallNotes && !inspection.recommendations) return '';
 
     return `
       <div class="section">
-        <div class="section-title">Opmerkingen en Aanbevelingen</div>
-        <div class="notes-section">
-          ${
-            inspection.overallNotes
-              ? `
-          <div style="margin-bottom: 15px;">
-            <strong>Algemene opmerkingen:</strong>
-            <div style="margin-top: 5px;">${inspection.overallNotes}</div>
-          </div>
-          `
-              : ''
-          }
-          ${
-            inspection.recommendations
-              ? `
-          <div>
-            <strong>Aanbevelingen:</strong>
-            <div style="margin-top: 5px;">${inspection.recommendations}</div>
-          </div>
-          `
-              : ''
-          }
+        <div class="section-title">Overige Opmerkingen</div>
+        <div style="background: #f9fafb; padding: 15px; border-radius: 4px;">
+          ${inspection.overallNotes ? `<p><strong>Opmerkingen:</strong><br>${inspection.overallNotes}</p>` : ''}
+          ${inspection.recommendations ? `<p style="margin-top:10px;"><strong>Aanbevelingen:</strong><br>${inspection.recommendations}</p>` : ''}
         </div>
       </div>
     `;
@@ -684,25 +554,15 @@ export class ReportTemplateService {
    * Generate signature section
    */
   private static generateSignature(inspection: any): string {
-    if (!inspection.signatureData) {
-      return '';
-    }
+    if (!inspection.signatureData) return '';
 
     return `
-      <div class="section signature-section">
-        <div class="section-title">Handtekening</div>
+      <div class="section signature-section" style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+        <div class="section-title">Ondertekening</div>
         <div>
-          <img src="${inspection.signatureData}" alt="Handtekening" class="signature-img" />
-          <div style="margin-top: 10px;">
-            <strong>Getekend door:</strong> ${inspection.signedBy || '-'}
-          </div>
-          <div style="margin-top: 5px;">
-            <strong>Datum:</strong> ${
-              inspection.signedAt
-                ? new Date(inspection.signedAt).toLocaleDateString('nl-NL')
-                : '-'
-            }
-          </div>
+          <img src="${inspection.signatureData}" class="signature-img" alt="Sign" />
+          <p><strong>Inspecteur:</strong> ${inspection.signedBy || 'Onbekend'}</p>
+          <p><strong>Datum:</strong> ${inspection.signedAt ? new Date(inspection.signedAt).toLocaleDateString('nl-NL') : '-'}</p>
         </div>
       </div>
     `;
@@ -714,8 +574,7 @@ export class ReportTemplateService {
   private static generateFooter(): string {
     return `
       <div class="footer">
-        <p>Dit rapport is automatisch gegenereerd door ElektroInspect</p>
-        <p>© ${new Date().getFullYear()} ElektroInspect - Alle rechten voorbehouden</p>
+        <p>Easy Data Inspectie platform - Powered by Easy Data</p>
       </div>
     `;
   }

@@ -25,6 +25,9 @@ RUN npx prisma generate
 # Build TypeScript code
 RUN npm run build
 
+# Copy assets (logo, etc)
+COPY src/assets ./dist/assets
+
 # Create uploads directory and set permissions
 RUN mkdir -p uploads/temp && chmod -R 777 uploads
 
